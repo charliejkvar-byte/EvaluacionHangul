@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluación Final: Juego de Ahorcado - Alfabeto Coreano (Hangul)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        korean: {
+                            red: '#C6363C',
+                            blue: '#0F4C81',
+                            teal: '#1A6B71',
+                            cream: '#FAF7F2',
+                            dark: '#1F2937',
+                            gold: '#D4AF37',
+                            softRed: '#FEE2E2',
+                            softGreen: '#D1FAE5'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        hangul: ['Noto Serif KR', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+KR:wght@600;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FAF7F2;
+            background-image: radial-gradient(#0F4C81 0.5px, transparent 0.5px), radial-gradient(#C6363C 0.5px, #FAF7F2 0.5px);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+            background-opacity: 0.05;
+        }
+
+        .hangul-text {
+            font-family: 'Noto Serif KR', serif;
+        }
+
+        /* Drag and drop styling */
+        .draggable {
+            touch-action: none;
+            user-select: none;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .draggable:active, .draggable.dragging {
+            transform: scale(1.08);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            z-index: 50;
+        }
+
+        .drop-target {
+            transition: all 0.2s ease;
+        }
+
+        .drop-target.drag-over {
+            border-color: #0F4C81;
+            background-color: #E0F2FE;
+            transform: scale(1.03);
+        }
+
+        /* Animated SVG elements for Hangman */
+        .hangman-part {
+            stroke-dasharray: 200;
+            stroke-dashoffset: 200;
+            animation: drawLine 0.6s forwards ease-in-out;
+        }
+
+        @keyframes drawLine {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        /* Custom Bounce Animation for Popups */
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            80% { transform: scale(1.05); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .popup-bounce {
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .selected-source {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-gray-800 flex flex-col justify-between p-2 sm:p-4 md:p-6">
+
+    <!-- Header Banner -->
+    <header class="max-w-4xl mx-auto w-full bg-white/90 backdrop-blur border-b-4 border-korean-red rounded-2xl p-4 mb-4 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-korean-red text-white flex items-center justify-center text-2xl font-bold hangul-text shadow-md">
+                한
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold text-korean-dark">Curso de Hangul: Evaluación Final</h1>
+                <p class="text-xs sm:text-sm text-gray-600">Ahorcado Interactivo de Vocabulario y Pronunciación</p>
+            </div>
+        </div>
+        <div id="student-tag" class="hidden bg-korean-blue/10 border border-korean-blue text-korean-blue px-3 py-1.5 rounded-full text-xs font-semibold">
+            <!-- Student info inserted via JS -->
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto w-full flex-grow flex flex-col items-center justify-center">
+
+        <!-- STEP 1: Registration Card -->
+        <section id="registration-screen" class="w-full bg-white rounded-3xl shadow-xl p-6 sm:p-8 border border-gray-100 max-w-lg transition-all">
+            <div class="text-center mb-6">
+                <span class="inline-block px-3 py-1 bg-korean-blue/10 text-korean-blue rounded-full text-xs font-semibold uppercase tracking-wider mb-2">Registro de Estudiante</span>
+                <h2 class="text-2xl font-bold text-gray-900">Ingresa tus datos</h2>
+                <p class="text-sm text-gray-500 mt-1">Registra tu nombre y correo para comenzar la evaluación final.</p>
+            </div>
+
+            <form id="registration-form" onsubmit="handleRegistration(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1" for="student-name">Nombre Completo *</label>
+                    <input type="text" id="student-name" required placeholder="Ej. Ana María Gómez" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-korean-blue focus:border-transparent outline-none transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1" for="student-email">Correo Electrónico *</label>
+                    <input type="email" id="student-email" required placeholder="ejemplo@correo.com" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-korean-blue focus:border-transparent outline-none transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1" for="sheet-url">URL Web App Google Sheets (Opcional)</label>
+                    <input type="url" id="sheet-url" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-xs focus:ring-2 focus:ring-korean-blue focus:border-transparent outline-none transition">
+                    <p class="text-[11px] text-gray-400 mt-1">Si dejas este campo en blanco, los datos se guardarán de forma local en tu navegador.</p>
+                </div>
+
+                <div class="pt-2">
+                    <button type="submit" class="w-full bg-korean-red hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl shadow-lg hover:shadow-xl transition transform active:scale-95 flex items-center justify-center gap-2">
+                        <span>Iniciar Evaluación</span>
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Apps Script Collapsible Help -->
+            <div class="mt-6 border-t border-gray-100 pt-4">
+                <button type="button" onclick="toggleAppsScriptHelp()" class="text-xs text-korean-blue font-medium hover:underline flex items-center gap-1 mx-auto">
+                    <span>¿Cómo configurar la hoja de Google Sheets?</span>
+                    <svg id="help-chevron" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div id="apps-script-help" class="hidden mt-3 text-xs bg-gray-50 p-4 rounded-xl text-gray-600 border border-gray-200">
+                    <p class="font-bold text-gray-800 mb-1">Código Google Apps Script recomendado:</p>
+                    <pre class="bg-gray-800 text-green-400 p-2.5 rounded-lg overflow-x-auto text-[10px] my-2"><code>function doPost(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var data = JSON.parse(e.postData.contents);
+  sheet.appendRow([new Date(), data.nombre, data.email, data.puntajeTotal, data.porcentaje + '%']);
+  return ContentService.createTextOutput("OK");
+}</code></pre>
+                    <ol class="list-decimal list-inside space-y-1 text-[11px]">
+                        <li>Crea una hoja en Google Sheets.</li>
+                        <li>Ve a <em>Extensiones > Apps Script</em>, pega el código arriba y guarda.</li>
+                        <li>Haz clic en <em>Desplegar > Nuevo despliegue</em>.</li>
+                        <li>Selecciona tipo <strong>Aplicación Web</strong>, acceso: <strong>Cualquier persona</strong>.</li>
+                        <li>Copia el enlace de la Web App e ingrésalo en la casilla superior.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- STEP 2: Evaluation Game Area -->
+        <section id="game-screen" class="hidden w-full flex flex-col gap-4">
+            
+            <!-- Progress & Section Header -->
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <span id="section-badge" class="px-3 py-1 bg-korean-blue text-white rounded-full text-xs font-bold uppercase tracking-wider">
+                        Sección 1/2: Caracteres Hangul
+                    </span>
+                    <h3 id="section-title" class="text-base sm:text-lg font-bold text-gray-800 mt-1">
+                        Desliza o toca los signos coreanos para formar la palabra
+                    </h3>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <span class="text-xs text-gray-400 font-bold uppercase">Pregunta</span>
+                        <p id="question-tracker" class="text-lg font-bold text-korean-dark">1 de 5</p>
+                    </div>
+                    <div class="text-right pl-4 border-l border-gray-200">
+                        <span class="text-xs text-gray-400 font-bold uppercase">Puntaje global</span>
+                        <p id="live-score" class="text-lg font-bold text-korean-teal">0 pts</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Interactive Area: Visual & Word + Hangman Canvas -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+                
+                <!-- Left/Center Column: Word Prompt & Slots -->
+                <div class="lg:col-span-7 bg-white rounded-3xl shadow-md border border-gray-100 p-5 sm:p-6 flex flex-col justify-between min-h-[380px]">
+                    
+                    <!-- Prompt Box -->
+                    <div class="flex items-center gap-4 bg-amber-50/60 border border-amber-200/60 rounded-2xl p-4">
+                        <div id="word-image-container" class="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-xl shadow-inner border border-amber-100 flex items-center justify-center p-2 flex-shrink-0">
+                            <!-- Dynamic SVG illustration -->
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">Palabra a completar</span>
+                            <div id="word-prompt-roman" class="text-2xl sm:text-3xl font-black text-gray-900 tracking-wide mt-0.5">
+                                <!-- e.g. "namu" -->
+                            </div>
+                            <div id="word-prompt-translation" class="text-sm font-semibold text-gray-600 italic">
+                                <!-- e.g. "/ árbol /" -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Drop Slots -->
+                    <div class="my-6">
+                        <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 text-center">
+                            Ubica los elementos en el orden correcto
+                        </p>
+                        <div id="drop-slots-container" class="flex flex-wrap justify-center gap-2 sm:gap-3">
+                            <!-- Slots generated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Draggable Options Bank -->
+                    <div class="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Opciones disponibles (Arrastra o Toca)</p>
+                            <span class="text-[11px] text-gray-400 italic">Incluye distractores</span>
+                        </div>
+                        <div id="options-bank" class="flex flex-wrap justify-center gap-2 min-h-[60px] items-center p-1">
+                            <!-- Draggable elements generated via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Clear / Reset Slot Action -->
+                    <div class="mt-4 flex justify-end">
+                        <button onclick="clearCurrentSlots()" class="text-xs font-semibold text-gray-500 hover:text-korean-red flex items-center gap-1 transition px-2 py-1 rounded hover:bg-red-50">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Reiniciar respuesta actual</span>
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Right Column: Animated Visual Hangman Stage -->
+                <div class="lg:col-span-5 bg-white rounded-3xl shadow-md border border-gray-100 p-5 flex flex-col items-center justify-between min-h-[380px]">
+                    <div class="w-full flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-wider">Estado del Ahorcado</span>
+                        <span id="error-counter" class="text-xs font-bold px-2.5 py-1 rounded-full bg-red-100 text-korean-red">
+                            Errores: 0 / 6
+                        </span>
+                    </div>
+
+                    <!-- SVG Canvas for Drawing Hangman -->
+                    <div class="relative w-full max-w-[260px] h-[260px] bg-slate-50 rounded-2xl border border-slate-200 p-2 flex items-center justify-center">
+                        <svg id="hangman-svg" class="w-full h-full" viewBox="0 0 200 220" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Scaffold / Structure -->
+                            <path d="M 20 200 L 100 200" stroke="#94A3B8" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M 50 200 L 50 20" stroke="#64748B" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M 48 20 L 130 20" stroke="#64748B" stroke-width="5" stroke-linecap="round"/>
+                            <path d="M 50 50 L 80 20" stroke="#64748B" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M 130 20 L 130 45" stroke="#CBD5E1" stroke-width="3" stroke-dasharray="4"/>
+
+                            <!-- Hangman Parts (Hidden initially) -->
+                            <!-- Part 1: Head -->
+                            <g id="hp-1" class="hidden">
+                                <circle cx="130" cy="65" r="20" fill="#FFE0B2" stroke="#D97706" stroke-width="3"/>
+                                <!-- Neutral Expression -->
+                                <circle cx="123" cy="60" r="2" fill="#333"/>
+                                <circle cx="137" cy="60" r="2" fill="#333"/>
+                                <path d="M 124 73 Q 130 70 136 73" stroke="#333" stroke-width="2" fill="none"/>
+                            </g>
+
+                            <!-- Part 2: Body -->
+                            <g id="hp-2" class="hidden">
+                                <path class="hangman-part" d="M 130 85 L 130 135" stroke="#0F4C81" stroke-width="4" stroke-linecap="round"/>
+                            </g>
+
+                            <!-- Part 3: Left Arm -->
+                            <g id="hp-3" class="hidden">
+                                <path class="hangman-part" d="M 130 95 L 105 115" stroke="#0F4C81" stroke-width="4" stroke-linecap="round"/>
+                            </g>
+
+                            <!-- Part 4: Right Arm -->
+                            <g id="hp-4" class="hidden">
+                                <path class="hangman-part" d="M 130 95 L 155 115" stroke="#0F4C81" stroke-width="4" stroke-linecap="round"/>
+                            </g>
+
+                            <!-- Part 5: Left Leg -->
+                            <g id="hp-5" class="hidden">
+                                <path class="hangman-part" d="M 130 135 L 110 175" stroke="#1F2937" stroke-width="4" stroke-linecap="round"/>
+                            </g>
+
+                            <!-- Part 6: Right Leg (Final Complete) -->
+                            <g id="hp-6" class="hidden">
+                                <path class="hangman-part" d="M 130 135 L 150 175" stroke="#1F2937" stroke-width="4" stroke-linecap="round"/>
+                                <!-- Sad Face Overlays -->
+                                <circle cx="123" cy="60" r="2.5" fill="#C6363C"/>
+                                <circle cx="137" cy="60" r="2.5" fill="#C6363C"/>
+                                <path d="M 124 74 Q 130 68 136 74" stroke="#C6363C" stroke-width="2.5" fill="none"/>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <p class="text-xs text-gray-400 text-center mt-2">
+                        Si erras un bloque, surgirá una parte del ahorcado. ¡Conserva al monigote a salvo!
+                    </p>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- STEP 3: Final Completion Screen -->
+        <section id="results-screen" class="hidden w-full bg-white rounded-3xl shadow-xl p-6 sm:p-10 border border-gray-100 max-w-2xl text-center">
+            <div class="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg text-3xl">
+                🎓
+            </div>
+            <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-bold uppercase tracking-wider">
+                Evaluación Finalizada
+            </span>
+            <h2 class="text-3xl font-black text-gray-900 mt-2">¡Felicidades por completar la evaluación!</h2>
+            <p class="text-gray-600 text-sm mt-1">Has concluido con éxito ambas secciones del examen de Hangul.</p>
+
+            <!-- Score Summary Card -->
+            <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 my-6 grid grid-cols-2 gap-4">
+                <div class="text-center border-r border-slate-200">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Puntaje Total</span>
+                    <p id="final-score-val" class="text-3xl sm:text-4xl font-extrabold text-korean-blue mt-1">0 / 10</p>
+                </div>
+                <div class="text-center">
+                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Calificación</span>
+                    <p id="final-percentage-val" class="text-3xl sm:text-4xl font-extrabold text-korean-teal mt-1">0%</p>
+                </div>
+            </div>
+
+            <!-- Student Metadata Confirmation -->
+            <div id="student-summary-box" class="text-xs text-gray-500 bg-gray-50 p-4 rounded-xl border border-gray-200 text-left space-y-1 mb-6">
+                <!-- Data populated dynamically -->
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                <button onclick="restartEntireAssessment()" class="px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white font-bold rounded-xl shadow transition text-sm">
+                    Reintentar Evaluación
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-4xl mx-auto w-full text-center py-4 mt-6 text-xs text-gray-400 border-t border-gray-200/60">
+        Curso Autónomo de Alfabeto Coreano (Hangul) &copy; 2026 - Módulo de Evaluación
+    </footer>
+
+    <!-- MODAL POPUP: Success or Retry Bubble -->
+    <div id="status-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div id="status-modal-card" class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 popup-bounce">
+            <div id="modal-icon-container" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-inner">
+                <!-- Icon inserted via JS -->
+            </div>
+            
+            <h3 id="modal-title-es" class="text-2xl font-black text-gray-900">!Bien hecho!</h3>
+            <h4 id="modal-title-kr" class="text-lg font-bold text-korean-blue hangul-text mt-0.5">잘했어요!</h4>
+            
+            <p id="modal-message" class="text-xs text-gray-600 mt-3 leading-relaxed">
+                <!-- Context message -->
+            </p>
+
+            <div class="my-4 py-2 bg-gray-50 rounded-xl border border-gray-100">
+                <span class="text-[11px] text-gray-400 font-bold uppercase">Puntaje acumulado en esta sección</span>
+                <p id="modal-score" class="text-xl font-black text-gray-800">5 / 5 pts</p>
+            </div>
+
+            <button id="modal-btn" onclick="closeModalAction()" class="w-full py-3 px-6 rounded-xl text-white font-bold shadow-lg transition transform active:scale-95">
+                Continuar
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        /* ----------------------------------------------------
+           DATA STRUCTURE: QUESTIONS & SECTIONS
+        ---------------------------------------------------- */
+        
+        // SECTION 1: Romanization/Translation -> Assemble Hangul
+        const section1Data = [
+            {
+                id: "s1_1",
+                roman: "namu",
+                translation: "árbol",
+                correct: ["나", "무"],
+                distractors: ["다", "라", "마"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M45 85 L55 85 L55 55 L45 55 Z" fill="#8B4513"/><circle cx="50" cy="40" r="30" fill="#2E7D32"/><circle cx="35" cy="35" r="20" fill="#388E3C"/><circle cx="65" cy="35" r="20" fill="#1B5E20"/></svg>`
+            },
+            {
+                id: "s1_2",
+                roman: "sagwa",
+                translation: "manzana",
+                correct: ["사", "과"],
+                distractors: ["카", "파", "바"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="55" r="32" fill="#E53935"/><path d="M50 25 C50 15 60 15 65 10" stroke="#8B4513" stroke-width="4" fill="none"/><path d="M50 25 C40 18 35 25 30 20" stroke="#2E7D32" stroke-width="3" fill="#4CAF50"/></svg>`
+            },
+            {
+                id: "s1_3",
+                roman: "jip",
+                translation: "casa",
+                correct: ["집"],
+                distractors: ["방", "문", "창"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><polygon points="50,15 15,45 85,45" fill="#C6363C"/><rect x="25" y="45" width="50" height="40" fill="#FFE0B2"/><rect x="42" y="60" width="16" height="25" fill="#8B4513"/></svg>`
+            },
+            {
+                id: "s1_4",
+                roman: "mul",
+                translation: "agua",
+                correct: ["물"],
+                distractors: ["불", "달", "해"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M50 15 C50 15 80 55 80 70 A30 30 0 0 1 20 70 C20 55 50 15 50 15 Z" fill="#29B6F6"/><ellipse cx="40" cy="60" rx="8" ry="15" fill="#E0F7FA" opacity="0.5" transform="rotate(-20 40 60)"/></svg>`
+            },
+            {
+                id: "s1_5",
+                roman: "gobi",
+                translation: "desierto",
+                correct: ["고", "비"],
+                distractors: ["산", "강", "바"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M0 70 Q 25 40 50 70 T 100 70 L 100 100 L 0 100 Z" fill="#FBC02D"/><circle cx="75" cy="30" r="12" fill="#F57F17"/></svg>`
+            }
+        ];
+
+        // SECTION 2: Hangul/Translation -> Assemble Romanization Pronunciation
+        const section2Data = [
+            {
+                id: "s2_1",
+                hangulPrompt: "나무",
+                translation: "árbol",
+                correct: ["na", "mu"],
+                distractors: ["da", "ro", "ma"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M45 85 L55 85 L55 55 L45 55 Z" fill="#8B4513"/><circle cx="50" cy="40" r="30" fill="#2E7D32"/><circle cx="35" cy="35" r="20" fill="#388E3C"/><circle cx="65" cy="35" r="20" fill="#1B5E20"/></svg>`
+            },
+            {
+                id: "s2_2",
+                hangulPrompt: "사과",
+                translation: "manzana",
+                correct: ["sa", "gwa"],
+                distractors: ["ka", "pa", "ba"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><circle cx="50" cy="55" r="32" fill="#E53935"/><path d="M50 25 C50 15 60 15 65 10" stroke="#8B4513" stroke-width="4" fill="none"/><path d="M50 25 C40 18 35 25 30 20" stroke="#2E7D32" stroke-width="3" fill="#4CAF50"/></svg>`
+            },
+            {
+                id: "s2_3",
+                hangulPrompt: "집",
+                translation: "casa",
+                correct: ["jip"],
+                distractors: ["bang", "mun", "chang"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><polygon points="50,15 15,45 85,45" fill="#C6363C"/><rect x="25" y="45" width="50" height="40" fill="#FFE0B2"/><rect x="42" y="60" width="16" height="25" fill="#8B4513"/></svg>`
+            },
+            {
+                id: "s2_4",
+                hangulPrompt: "물",
+                translation: "agua",
+                correct: ["mul"],
+                distractors: ["bul", "dal", "hae"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><path d="M50 15 C50 15 80 55 80 70 A30 30 0 0 1 20 70 C20 55 50 15 50 15 Z" fill="#29B6F6"/><ellipse cx="40" cy="60" rx="8" ry="15" fill="#E0F7FA" opacity="0.5" transform="rotate(-20 40 60)"/></svg>`
+            },
+            {
+                id: "s2_5",
+                hangulPrompt: "고양이",
+                translation: "gato",
+                correct: ["go", "yang", "i"],
+                distractors: ["geu", "nam", "mi"],
+                svg: `<svg viewBox="0 0 100 100" class="w-full h-full"><ellipse cx="50" cy="60" rx="25" ry="20" fill="#FFA726"/><circle cx="50" cy="35" r="18" fill="#FFA726"/><polygon points="35,22 42,32 32,32" fill="#E65100"/><polygon points="65,22 68,32 58,32" fill="#E65100"/><circle cx="43" cy="32" r="2.5" fill="#000"/><circle cx="57" cy="32" r="2.5" fill="#000"/><ellipse cx="50" cy="38" rx="2" ry="1" fill="#D81B60"/></svg>`
+            }
+        ];
+
+        /* ----------------------------------------------------
+           APPLICATION STATE
+        ---------------------------------------------------- */
+        let studentData = {
+            name: '',
+            email: '',
+            sheetUrl: ''
+        };
+
+        let currentSectionIndex = 1; // 1 or 2
+        let currentQuestionIndex = 0; // 0 to 4
+        let sectionScores = { 1: 0, 2: 0 };
+        let currentHangmanErrors = 0; // max 6
+        const MAX_HANGMAN_ERRORS = 6;
+
+        let activeQuestionData = null;
+        let userSlotSelections = [];
+        let selectedSourceIndex = null; // For Tap-to-Place mobile interactions
+
+        /* ----------------------------------------------------
+           INITIALIZATION & REGISTRATION
+        ---------------------------------------------------- */
+        function toggleAppsScriptHelp() {
+            const helpBox = document.getElementById('apps-script-help');
+            const chevron = document.getElementById('help-chevron');
+            helpBox.classList.toggle('hidden');
+            chevron.classList.toggle('rotate-180');
+        }
+
+        function handleRegistration(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('student-name').value.trim();
+            const emailInput = document.getElementById('student-email').value.trim();
+            const urlInput = document.getElementById('sheet-url').value.trim();
+
+            if (!nameInput || !emailInput) return;
+
+            studentData.name = nameInput;
+            studentData.email = emailInput;
+            studentData.sheetUrl = urlInput;
+
+            // Display student badge
+            const studentTag = document.getElementById('student-tag');
+            studentTag.textContent = `👤 ${studentData.name}`;
+            studentTag.classList.remove('hidden');
+
+            // Switch screen
+            document.getElementById('registration-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+
+            // Start Section 1
+            startSection(1);
+        }
+
+        /* ----------------------------------------------------
+           GAME ENGINE & SECTION FLOW
+        ---------------------------------------------------- */
+        function startSection(sectionNum) {
+            currentSectionIndex = sectionNum;
+            currentQuestionIndex = 0;
+            sectionScores[sectionNum] = 0;
+            resetHangman();
+
+            updateSectionUIHeader();
+            loadQuestion(currentQuestionIndex);
+        }
+
+        function updateSectionUIHeader() {
+            const badge = document.getElementById('section-badge');
+            const title = document.getElementById('section-title');
+
+            if (currentSectionIndex === 1) {
+                badge.textContent = "Sección 1/2: Caracteres Hangul";
+                badge.className = "px-3 py-1 bg-korean-blue text-white rounded-full text-xs font-bold uppercase tracking-wider";
+                title.textContent = "Desliza o toca los signos coreanos para formar la palabra correctamente.";
+            } else {
+                badge.textContent = "Sección 2/2: Pronunciación";
+                badge.className = "px-3 py-1 bg-korean-teal text-white rounded-full text-xs font-bold uppercase tracking-wider";
+                title.textContent = "Desliza o toca la pronunciación en alfabeto románico de la palabra mostrada.";
+            }
+        }
+
+        function loadQuestion(index) {
+            currentQuestionIndex = index;
+            document.getElementById('question-tracker').textContent = `${index + 1} de 5`;
+            updateLiveScoreDisplay();
+
+            const dataset = currentSectionIndex === 1 ? section1Data : section2Data;
+            activeQuestionData = dataset[index];
+
+            // Render visual prompt
+            document.getElementById('word-image-container').innerHTML = activeQuestionData.svg;
+
+            if (currentSectionIndex === 1) {
+                document.getElementById('word-prompt-roman').textContent = activeQuestionData.roman;
+                document.getElementById('word-prompt-translation').textContent = `/ ${activeQuestionData.translation} /`;
+            } else {
+                document.getElementById('word-prompt-roman').textContent = activeQuestionData.hangulPrompt;
+                document.getElementById('word-prompt-translation').textContent = `/ ${activeQuestionData.translation} /`;
+            }
+
+            // Initialize user choices & slots
+            userSlotSelections = new Array(activeQuestionData.correct.length).fill(null);
+            renderSlots();
+            renderOptionsBank();
+        }
+
+        function updateLiveScoreDisplay() {
+            const total = sectionScores[1] + sectionScores[2];
+            document.getElementById('live-score').textContent = `${total} pts`;
+        }
+
+        /* ----------------------------------------------------
+           SLOTS & OPTIONS RENDERING
+        ---------------------------------------------------- */
+        function renderSlots() {
+            const container = document.getElementById('drop-slots-container');
+            container.innerHTML = '';
+
+            userSlotSelections.forEach((val, idx) => {
+                const slot = document.createElement('div');
+                slot.className = `drop-target w-16 h-16 sm:w-20 sm:h-20 rounded-2xl border-2 border-dashed ${
+                    val ? 'border-korean-blue bg-blue-50/50' : 'border-gray-300 bg-white'
+                } flex items-center justify-center cursor-pointer relative shadow-inner`;
+                slot.dataset.slotIndex = idx;
+
+                if (val) {
+                    const block = document.createElement('div');
+                    block.className = `w-14 h-14 sm:w-16 sm:h-16 bg-white border border-gray-200 rounded-xl shadow-md flex items-center justify-center text-xl sm:text-2xl font-bold ${
+                        currentSectionIndex === 1 ? 'hangul-text text-korean-blue' : 'text-korean-teal'
+                    }`;
+                    block.textContent = val;
+                    slot.appendChild(block);
+                } else {
+                    const placeholder = document.createElement('span');
+                    placeholder.className = 'text-xs text-gray-300 font-bold';
+                    placeholder.textContent = `P${idx + 1}`;
+                    slot.appendChild(placeholder);
+                }
+
+                // Event listeners for Drag & Touch Drop
+                slot.addEventListener('dragover', handleDragOver);
+                slot.addEventListener('dragleave', handleDragLeave);
+                slot.addEventListener('drop', handleDrop);
+                slot.addEventListener('click', () => handleSlotClick(idx));
+
+                container.appendChild(slot);
+            });
+        }
+
+        function renderOptionsBank() {
+            const bank = document.getElementById('options-bank');
+            bank.innerHTML = '';
+
+            // Combine correct items + distractors and shuffle
+            const allItems = [...activeQuestionData.correct, ...activeQuestionData.distractors];
+            
+            // Seeded or predictable shuffle per question ID
+            const shuffled = shuffleArray([...allItems], activeQuestionData.id);
+
+            shuffled.forEach((itemText, idx) => {
+                const isUsed = userSlotSelections.includes(itemText);
+
+                const itemBtn = document.createElement('div');
+                itemBtn.className = `draggable px-4 py-3 bg-white border border-gray-200 rounded-xl shadow-sm text-lg sm:text-xl font-bold cursor-pointer select-none transition ${
+                    isUsed ? 'selected-source' : 'hover:border-korean-blue hover:shadow-md'
+                } ${currentSectionIndex === 1 ? 'hangul-text text-gray-800' : 'text-gray-800'}`;
+                
+                itemBtn.textContent = itemText;
+                itemBtn.draggable = !isUsed;
+                itemBtn.dataset.itemValue = itemText;
+                itemBtn.dataset.bankIndex = idx;
+
+                if (selectedSourceIndex === idx) {
+                    itemBtn.classList.add('ring-2', 'ring-korean-red');
+                }
+
+                // HTML5 Drag events
+                itemBtn.addEventListener('dragstart', handleDragStart);
+                itemBtn.addEventListener('dragend', handleDragEnd);
+
+                // Tap / Click fallback for touch screens
+                itemBtn.addEventListener('click', () => handleOptionClick(itemText, idx, isUsed));
+
+                bank.appendChild(itemBtn);
+            });
+        }
+
+        /* Utility array shuffle based on string key */
+        function shuffleArray(array, seedStr) {
+            let hash = 0;
+            for (let i = 0; i < seedStr.length; i++) {
+                hash = seedStr.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            let m = array.length, t, i;
+            while (m) {
+                i = Math.floor(Math.abs(Math.sin(hash++)) * m--);
+                t = array[m];
+                array[m] = array[i];
+                array[i] = t;
+            }
+            return array;
+        }
+
+        /* ----------------------------------------------------
+           DRAG & DROP + TAP LOGIC
+        ---------------------------------------------------- */
+        let draggedValue = null;
+
+        function handleDragStart(e) {
+            draggedValue = e.target.dataset.itemValue;
+            e.target.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', draggedValue);
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            const slotIndex = parseInt(e.currentTarget.dataset.slotIndex, 10);
+            e.currentTarget.classList.remove('drag-over');
+
+            if (draggedValue !== null) {
+                placeItemInSlot(draggedValue, slotIndex);
+            }
+        }
+
+        function handleOptionClick(value, bankIdx, isUsed) {
+            if (isUsed) return;
+
+            // Find first empty slot
+            const emptySlotIndex = userSlotSelections.findIndex(val => val === null);
+            if (emptySlotIndex !== -1) {
+                placeItemInSlot(value, emptySlotIndex);
+            }
+        }
+
+        function handleSlotClick(slotIndex) {
+            if (userSlotSelections[slotIndex] !== null) {
+                // Clear slot
+                userSlotSelections[slotIndex] = null;
+                selectedSourceIndex = null;
+                renderSlots();
+                renderOptionsBank();
+            }
+        }
+
+        function clearCurrentSlots() {
+            userSlotSelections.fill(null);
+            selectedSourceIndex = null;
+            renderSlots();
+            renderOptionsBank();
+        }
+
+        function placeItemInSlot(value, slotIndex) {
+            userSlotSelections[slotIndex] = value;
+            selectedSourceIndex = null;
+            renderSlots();
+            renderOptionsBank();
+
+            // Check if all slots are filled
+            if (!userSlotSelections.includes(null)) {
+                setTimeout(evaluateAnswer, 250);
+            }
+        }
+
+        /* ----------------------------------------------------
+           ANSWER EVALUATION & HANGMAN LOGIC
+        ---------------------------------------------------- */
+        function evaluateAnswer() {
+            const isCorrect = userSlotSelections.every((val, i) => val === activeQuestionData.correct[i]);
+
+            if (isCorrect) {
+                // Award score point
+                sectionScores[currentSectionIndex] += 1;
+                updateLiveScoreDisplay();
+
+                // Move to next question or end section
+                if (currentQuestionIndex + 1 < 5) {
+                    loadQuestion(currentQuestionIndex + 1);
+                } else {
+                    // Section Completed Successfully!
+                    showSectionModal(true);
+                }
+            } else {
+                // Error made -> Increment Hangman step
+                currentHangmanErrors += 1;
+                updateHangmanGraphic();
+
+                if (currentHangmanErrors >= MAX_HANGMAN_ERRORS) {
+                    // Failed whole section!
+                    showSectionModal(false);
+                } else {
+                    // Highlight mistake briefly and clear
+                    shakeSlots();
+                    setTimeout(clearCurrentSlots, 600);
+                }
+            }
+        }
+
+        function shakeSlots() {
+            const container = document.getElementById('drop-slots-container');
+            container.classList.add('animate-bounce');
+            setTimeout(() => container.classList.remove('animate-bounce'), 500);
+        }
+
+        function updateHangmanGraphic() {
+            document.getElementById('error-counter').textContent = `Errores: ${currentHangmanErrors} / ${MAX_HANGMAN_ERRORS}`;
+            
+            if (currentHangmanErrors >= 1 && currentHangmanErrors <= 6) {
+                const part = document.getElementById(`hp-${currentHangmanErrors}`);
+                if (part) part.classList.remove('hidden');
+            }
+        }
+
+        function resetHangman() {
+            currentHangmanErrors = 0;
+            document.getElementById('error-counter').textContent = `Errores: 0 / ${MAX_HANGMAN_ERRORS}`;
+            for (let i = 1; i <= 6; i++) {
+                const part = document.getElementById(`hp-${i}`);
+                if (part) part.classList.add('hidden');
+            }
+        }
+
+        /* ----------------------------------------------------
+           MODALS & DIALOGS
+        ---------------------------------------------------- */
+        let modalNextAction = null; // Callback function
+
+        function showSectionModal(isSuccess) {
+            const modal = document.getElementById('status-modal');
+            const card = document.getElementById('status-modal-card');
+            const icon = document.getElementById('modal-icon-container');
+            const titleEs = document.getElementById('modal-title-es');
+            const titleKr = document.getElementById('modal-title-kr');
+            const msg = document.getElementById('modal-message');
+            const scoreDisplay = document.getElementById('modal-score');
+            const btn = document.getElementById('modal-btn');
+
+            const score = sectionScores[currentSectionIndex];
+            scoreDisplay.textContent = `${score} de 5 palabras`;
+
+            if (isSuccess) {
+                card.className = "bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-emerald-500 popup-bounce";
+                icon.className = "w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-inner bg-emerald-100 text-emerald-600";
+                icon.textContent = "🎉";
+                titleEs.textContent = "¡Bien hecho!";
+                titleKr.textContent = "잘했어요!";
+                
+                if (currentSectionIndex === 1) {
+                    msg.textContent = "Has completado exitosamente la Sección 1 de construcción de palabras en Hangul. ¡Pasemos a la evaluación de pronunciación!";
+                    btn.textContent = "Ir a Sección 2";
+                    btn.className = "w-full py-3 px-6 rounded-xl text-white font-bold shadow-lg transition transform active:scale-95 bg-emerald-600 hover:bg-emerald-700";
+                    modalNextAction = () => {
+                        modal.classList.add('hidden');
+                        startSection(2);
+                    };
+                } else {
+                    msg.textContent = "¡Excelente trabajo! Has completado todas las actividades de la evaluación final.";
+                    btn.textContent = "Ver Resultados Finales";
+                    btn.className = "w-full py-3 px-6 rounded-xl text-white font-bold shadow-lg transition transform active:scale-95 bg-korean-blue hover:bg-blue-800";
+                    modalNextAction = () => {
+                        modal.classList.add('hidden');
+                        finishEvaluation();
+                    };
+                }
+            } else {
+                card.className = "bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center shadow-2xl border-4 border-korean-red popup-bounce";
+                icon.className = "w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 shadow-inner bg-red-100 text-korean-red";
+                icon.textContent = "😵";
+                titleEs.textContent = "¡Inténtalo de nuevo!";
+                titleKr.textContent = "다시 시도하세요!";
+                msg.textContent = "Se ha completado el dibujo del ahorcado debido a los errores acumulados. La sección se reiniciará desde la primera pregunta.";
+                btn.textContent = "Reiniciar Sección";
+                btn.className = "w-full py-3 px-6 rounded-xl text-white font-bold shadow-lg transition transform active:scale-95 bg-korean-red hover:bg-red-700";
+                
+                modalNextAction = () => {
+                    modal.classList.add('hidden');
+                    startSection(currentSectionIndex);
+                };
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModalAction() {
+            if (modalNextAction) modalNextAction();
+        }
+
+        /* ----------------------------------------------------
+           FINAL COMPLETION & GOOGLE SHEETS POSTING
+        ---------------------------------------------------- */
+        function finishEvaluation() {
+            document.getElementById('game-screen').classList.add('hidden');
+            const resultsScreen = document.getElementById('results-screen');
+            resultsScreen.classList.remove('hidden');
+
+            const totalScore = sectionScores[1] + sectionScores[2];
+            const percentage = Math.round((totalScore / 10) * 100);
+
+            document.getElementById('final-score-val').textContent = `${totalScore} / 10`;
+            document.getElementById('final-percentage-val').textContent = `${percentage}%`;
+
+            const summaryBox = document.getElementById('student-summary-box');
+            summaryBox.innerHTML = `
+                <p><strong>Estudiante:</strong> ${studentData.name}</p>
+                <p><strong>Correo:</strong> ${studentData.email}</p>
+                <p><strong>Sección 1 (Hangul):</strong> ${sectionScores[1]} / 5</p>
+                <p><strong>Sección 2 (Pronunciación):</strong> ${sectionScores[2]} / 5</p>
+                <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
+            `;
+
+            // Post to Google Sheets if URL provided
+            if (studentData.sheetUrl) {
+                sendDataToGoogleSheets(totalScore, percentage);
+            }
+        }
+
+        function sendDataToGoogleSheets(score, percentage) {
+            const payload = {
+                nombre: studentData.name,
+                email: studentData.email,
+                puntajeTotal: score,
+                porcentaje: percentage,
+                seccion1: sectionScores[1],
+                seccion2: sectionScores[2],
+                timestamp: new Date().toISOString()
+            };
+
+            fetch(studentData.sheetUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(() => {
+                console.log('Datos enviados correctamente a Google Sheets');
+            })
+            .catch(err => {
+                console.error('Error al enviar datos:', err);
+            });
+        }
+
+        function restartEntireAssessment() {
+            document.getElementById('results-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            startSection(1);
+        }
+    </script>
+</body>
+</html>
